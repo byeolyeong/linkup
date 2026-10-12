@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="net.likelion.bebc25.linkup.subscription.mapper.SubscriptionMapper">
+
+    <sql id="subscriptionColumns">
+        id AS subscription_id,
+        creator_id,
+        member_id,
+        customer_key,
+        billing_key,
+        price,
+        start_date,
+        end_date,
+        status,
+        next_billing_at
+    </sql>
+
+    <sql id="subscriptionDetailColumns">
+        s.id AS subscription_id,
+        m.name AS name,
+        m.unique_id AS unique_id,
+        m.email AS email,
+        s.price AS price,
+        s.status AS status,
+        s.start_date AS start_date,
+        s.end_date AS end_date,
+        s.next_billing_at AS next_billing_at
+    </sql>
+
+    <sql id="subscribeCreatorListColumns">
+        s.id AS subscription_id,
+        s.member_id AS member_id,
+        s.creator_id AS creator_id,
+        m.name AS creator_name,
+        m.unique_id AS creator_unique_id,
+        m.profile_image AS profile_image,
+        m.introduction AS introduction,
+        s.status AS status
+    </sql>
+
+    <insert id="save" parameterType="Subscription" useGeneratedKeys="true" keyProperty="subscriptionId">
+        INSERT INTO subscription ( creator_id, member_id, customer_key, billing_key, price, status )
+        VALUES ( #{creatorId}, #{memberId}, #{customerKey}, #{billingKey}, #{price}, #{status} )
+    </insert>
+
+    <update id="updateCancel">
+        UPDATE subscription
+        SET billing_key = NULL,
+        end_date = next_billing_at,
+        status = "CANCELED",
+        next_billing_at = NULL
+        WHERE id = #{subscriptionId}
+    </update>
+
+    <update id="updateRemoved">
+        UPDATE subscription
+        SET billing_key = NULL,
+        end_date = CURRENT_TIMESTAMP,
+        status = "REMOVED",
+        next_billing_at = NULL
+        WHERE id = #{subscriptionId}
+    </update>
+
+    <update id="updateNextBillingAt">
+        UPDATE subscription
+        SET next_billing_at = (CURRENT_TIMESTAMP + INTERVAL 30 DAY)
+        WHERE id = #{subscriptionId}
+    </update>
+
+    <update id="deleteExpirations">
+        UPDATE subscription
+        SET status = "REMOVED",
+        next_billing_at = NULL
+        WHERE end_date &lt; NOW() AND status = "CANCELED";
+    </update>
+
+    <select id="findByMemberIdAndCreatorId" resultType="string">
+        SELECT status
+        FROM subscription
+        WHERE member_id = #{memberId} AND creator_id = #{creatorId}
+    </select>
+
+    <select id="findBySubscriptionId" resultType="net.likelion.bebc25.linkup.subscription.domain.Subscription">
+        SELECT <include refid="subscriptionColumns" />
+        FROM subscription as s
+        WHERE s.id = #{subscriptionId}
+    </select>
+
+    <select id="checkStartDate" resultType="java.time.LocalDateTime">
+        SELECT start_date
+        FROM subscription as s
+        WHERE s.id = #{subscriptionId}
+    </select>
+
+    <select id="findAutoPaymentRenewalList" resultType="net.likelion.bebc25.linkup.subscription.domain.Subscription">
+        SELECT <include refid="subscriptionColumns" />
+        FROM subscription as s
+        WHERE next_billing_at &lt; NOW() AND billing_key != NULL
+    </select>
+
+    <select id="findSubscriptionDetail" resultType="net.likelion.bebc25.linkup.subscription.dto.SubscriptionDetailResponse">
+        SELECT <include refid="subscriptionDetailColumns" />
+        FROM subscription as s
+        JOIN member m ON m.id = s.creator_id
+        WHERE s.id = #{subscriptionId}
+    </select>
+
+    <select id="findSubscribeCreatorList" resultType="net.likelion.bebc25.linkup.subscription.dto.SubscribeCreatorListResponse">
+        SELECT <include refid="subscribeCreatorListColumns" />
+        FROM subscription as s
+        JOIN member m ON m.id = s.creator_id
+        <where>
+            AND s.member_id = #{memberId}
+            AND s.status != "REMOVED"
+            <if test="cursor != null">
+                AND s.id &lt; #{cursor}
+            </if>
+        </where>
+        ORDER BY s.id DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="countSubscribeCreator" resultType="int">
+        SELECT COUNT(*) AS count
+        FROM subscription
+        WHERE member_id = #{memberId} AND status != "REMOVED"
+    </select>
+
+</mapper>

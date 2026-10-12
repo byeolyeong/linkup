@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="net.likelion.bebc25.linkup.member.mapper.MemberMapper">
+
+    <!-- 이메일 기반 회원 정보 조회 -->
+    <select id="findByEmail"
+            resultType="net.likelion.bebc25.linkup.member.domain.Member">
+        SELECT
+        id,
+        email,
+        name,
+        unique_id,
+        profile_image,
+        introduction,
+        role,
+        warning_count,
+        writing_restricted_until,
+        created_at,
+        updated_at,
+        following_count,
+        follower_count
+        FROM member
+        WHERE email = #{email}
+    </select>
+
+    <!-- 회원 id 기반 정보 조회 -->
+    <select id="findById"
+            resultType="net.likelion.bebc25.linkup.member.domain.Member">
+        SELECT
+        id,
+        email,
+        name,
+        unique_id,
+        profile_image,
+        introduction,
+        role,
+        warning_count,
+        writing_restricted_until,
+        created_at,
+        updated_at,
+        following_count,
+        follower_count
+        FROM member
+        WHERE id = #{id}
+    </select>
+
+    <!-- 신규 회원 등록 -->
+    <insert id="save"
+            parameterType="net.likelion.bebc25.linkup.member.domain.Member"
+            useGeneratedKeys="true"
+            keyProperty="id">
+
+        INSERT INTO member (
+        email,
+        name,
+        unique_id,
+        profile_image,
+        introduction,
+        role
+        )
+        VALUES (
+        #{email},
+        #{name},
+        #{uniqueId},
+        #{profileImage},
+        #{introduction},
+        #{role}
+        )
+
+    </insert>
+
+    <!-- 작성한 게시글 수 조회 -->
+    <select id="countPosts" resultType="int">
+        SELECT COUNT(*)
+        FROM post
+        WHERE member_id = #{memberId}
+    </select>
+
+    <!-- 프로필 수정 -->
+    <update id="updateProfile">
+        UPDATE member
+        SET
+        name = #{name},
+        unique_id = #{uniqueId},
+        profile_image = #{profileImage},
+        introduction = #{introduction},
+        updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <!-- 크리에이터 부여 -->
+    <update id="updateRoleCreator">
+        UPDATE member
+        SET role = "ROLE_CREATOR"
+        WHERE id = #{memberId}
+    </update>
+
+    <select id="findProfileById"
+            resultType="net.likelion.bebc25.linkup.member.dto.MemberResponseDto">
+
+        SELECT
+        m.id,
+        m.unique_id AS uniqueId,
+        m.name,
+        m.profile_image AS profileImage,
+        m.introduction,
+        m.role,
+
+        (
+        SELECT COUNT(*)
+        FROM post p
+        WHERE p.member_id = m.id
+        ) AS postCount,
+
+        m.follower_count AS followerCount,
+        m.following_count AS followingCount
+
+        FROM member m
+        WHERE m.id = #{memberId}
+
+    </select>
+
+    <select id="findRecommendedMembers"
+            resultType="net.likelion.bebc25.linkup.member.dto.RecommendedMemberResponseDto">
+
+        SELECT
+        m.id,
+        m.name,
+        m.unique_id AS uniqueId,
+        m.profile_image AS profileImage,
+        m.introduction,
+        m.follower_count AS followerCount,
+        CASE
+        WHEN f.member_id IS NOT NULL THEN TRUE
+        ELSE FALSE
+        END AS following
+        FROM member m
+
+        LEFT JOIN follow f
+        ON f.member_id = #{memberId}
+        AND f.target_id = m.id
+
+        WHERE m.id != #{memberId}
+
+        -- 내가 팔로우한 사람 제외
+        AND f.member_id IS NULL
+
+        -- 차단 관계 제외
+        AND NOT EXISTS (
+        SELECT 1
+        FROM block b
+        WHERE
+        (b.member_id = #{memberId} AND b.blocked_id = m.id)
+        OR
+        (b.member_id = m.id AND b.blocked_id = #{memberId})
+        )
+
+        ORDER BY m.follower_count DESC, m.id DESC
+
+        LIMIT 4
+    </select>
+
+</mapper>
