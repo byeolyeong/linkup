@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="net.likelion.bebc25.linkup.post.mapper.PostMapper">
+    <!-- 게시글 등록 -->
+    <insert id="insert" parameterType="Post" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO post ( member_id, content, file_url, subscriber_only )
+        VALUES ( #{memberId}, #{content}, #{fileUrl}, #{subscriberOnly} )
+    </insert>
+
+    <!-- 게시글 단 건 조회 -->
+    <select id="findById" resultType="Post">
+        SELECT
+        p.id,
+        p.member_id,
+        p.content,
+        p.file_url,
+        p.like_count,
+        p.subscriber_only,
+        p.created_at,
+        p.updated_at
+        FROM post p
+        WHERE p.id = #{postId}
+        AND NOT EXISTS (
+        SELECT 1
+        FROM block b
+        WHERE
+        (b.member_id = #{memberId} AND b.blocked_id = p.member_id)
+        OR
+        (b.member_id = p.member_id AND b.blocked_id = #{memberId})
+        )
+    </select>
+
+    <!-- 게시글 상세 조회 -->
+    <!-- 게시글 상세 조회 -->
+    <select id="findDetailById" resultType="PostDetailRow">
+        SELECT
+        p.id AS id,
+        m.id AS member_id,
+        m.name,
+        m.unique_id,
+        m.profile_image,
+        p.content,
+        p.file_url,
+        p.like_count,
+        p.subscriber_only,
+        p.created_at AS created_at,
+        p.updated_at AS updated_at
+        FROM post p
+        JOIN member m ON p.member_id = m.id
+        WHERE p.id = #{postId}
+        <if test="memberId != null">
+            AND NOT EXISTS (
+            SELECT 1
+            FROM block b
+            WHERE
+            (b.member_id = #{memberId} AND b.blocked_id = p.member_id)
+            OR
+            (b.member_id = p.member_id AND b.blocked_id = #{memberId})
+            )
+        </if>
+    </select>
+
+    <!-- 게시글 삭제 -->
+    <delete id="deleteById" parameterType="long">
+        DELETE FROM post
+        WHERE id = #{postId}
+    </delete>
+
+    <!-- 게시글 수정 -->
+    <update id="updateById" parameterType="Post">
+        UPDATE post
+        SET content = #{content},
+            file_url = #{fileUrl},
+            subscriber_only = #{subscriberOnly}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 게시글 좋아요 카운트 증가 -->
+    <update id="incrementLikeCount">
+        UPDATE post
+        SET like_count = like_count + 1
+        WHERE id = #{postId}
+    </update>
+
+    <!-- 게시글 좋아요 카운트 감소 -->
+    <update id="decrementLikeCount">
+        UPDATE post
+        SET like_count = GREATEST(like_count - 1, 0)
+        WHERE id = #{postId}
+    </update>
+
+    <!-- 임시 구독 상태 조회 -->
+    <select id="existsValidSubscription" resultType="boolean">
+        SELECT EXISTS (
+        SELECT 1
+        FROM subscription
+        WHERE member_id = #{memberId} AND creator_id = #{creatorId}
+        AND status = 'ACTIVE'
+        AND (end_date IS NULL OR end_date > CURRENT_TIMESTAMP)
+        )
+    </select>
+</mapper>
