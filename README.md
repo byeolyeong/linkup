@@ -1,3 +1,11 @@
+## 📂 Portfolio
+
+프로젝트의 상세 담당 업무, 주요 구현 기능 및 기술적 문제 해결 과정을 정리한 전체 포트폴리오입니다.
+
+👉 [포트폴리오 PDF (Google Drive)](https://drive.google.com/file/d/1VpcJ5nYgaD_zi2Izdd_3ZPdsXp7yhZvV/view?usp=sharing)
+
+---
+
 # LinkUp Project
 
 **멋쟁이 사자처럼 백엔드 부트캠프 25기 응용 프로젝트 2조 LinkUp의 프로젝트 페이지입니다.**
